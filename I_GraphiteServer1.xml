@@ -1,0 +1,379 @@
+<?xml version="1.0"?>
+<implementation>
+	<functions>
+---------------------------------------------------------------
+-- Constants
+---------------------------------------------------------------
+local DEBUG_MODE = false
+local MSG_CLASS = "GraphiteServer"
+
+local GRAPHITE_SERVICE = "urn:graphite-server-com:serviceId:GraphiteServer1"
+local HADEVICE_SERVICE = "urn:micasaverde-com:serviceId:HaDevice1"
+
+-- Sensors services and data variables
+local SENSORS_TYPES = {
+	-- Temperature
+	t = {
+		serv_id = "urn:upnp-org:serviceId:TemperatureSensor1",
+		var = "CurrentTemperature"
+	},
+	-- Humidity
+	h = {
+		serv_id = "urn:micasaverde-com:serviceId:HumiditySensor1",
+		var = "CurrentLevel"
+	},
+	-- Battery
+	b = {
+		serv_id = "urn:micasaverde-com:serviceId:HaDevice1",
+		var = "BatteryLevel"
+	},
+	-- Power
+	p = {
+		serv_id = "urn:micasaverde-com:serviceId:EnergyMetering1",
+		var = "KWH"
+	},
+	-- Pressure
+	pr = {
+		serv_id = "urn:upnp-org:serviceId:BarometerSensor1",
+		var = "CurrentPressure"
+	},
+	-- Generic
+	g = {
+		serv_id = "urn:micasaverde-com:serviceId:GenericSensor1",
+		var = "CurrentLevel"
+	},
+	-- Light
+	l = {
+		serv_id = "urn:micasaverde-com:serviceId:LightSensor1",
+		var = "CurrentLevel"
+	},
+	-- Rain
+	r = {
+		serv_id = "urn:upnp-org:serviceId:RainSensor1",
+		var = "CurrentRain"
+	},
+	-- Rain Total
+	rt = {
+		serv_id = "urn:upnp-org:serviceId:RainSensor1",
+		var = "CurrentTRain"
+	},
+	-- Scale Weight
+	sw = {
+		serv_id = "urn:micasaverde-com:serviceId:ScaleSensor1",
+		var = "Weight"
+	},
+	-- Scale Impedance
+	si = {
+		serv_id = "urn:micasaverde-com:serviceId:ScaleSensor1",
+		var = "Impedance"
+	},
+	-- Uv
+	uv = {
+		serv_id = "urn:upnp-org:serviceId:UvSensor1",
+		var = "CurrentLevel"
+	},
+	-- Wind Gust speed
+	wg = {
+		serv_id = "urn:upnp-org:serviceId:WindSensor1",
+		var = "GustSpeed"
+	},
+	-- Wind Avg speed
+	wa = {
+		serv_id = "urn:upnp-org:serviceId:WindSensor1",
+		var = "AvgSpeed"
+	}
+}
+
+local TASK_BUSY = 1
+local TASK_ERROR = 2
+local TASK_SUCCESS = 4
+local task_handle = -1
+
+socket = require("socket")
+
+---------------------------------------------------------------
+-- log function
+---------------------------------------------------------------
+local function log(text, level)
+	luup.log(string.format("%s: %s", MSG_CLASS, text), (level or 50))
+end
+
+---------------------------------------------------------------
+-- debug function
+---------------------------------------------------------------
+local function debug(text)
+	if DEBUG_MODE == true then
+		text = tostring(text)
+		if text:find("\n") ~= nil then
+			for line in text:gmatch("[^\n]*\n") do
+				log("debug: " .. line, 35)
+			end
+		else
+			log("debug: " .. text, 35)
+		end
+	end
+end
+
+---------------------------------------------------------------
+-- task function
+---------------------------------------------------------------
+local function task(text, status)
+	task_handle = luup.task(text,status,MSG_CLASS,task_handle)
+end
+
+---------------------------------------------------------------
+-- getVariables function
+---------------------------------------------------------------
+local function getVariables()
+
+	local vars = {}
+
+	vars.prefix		= luup.variable_get(GRAPHITE_SERVICE, "Prefix", GRAPHITE_DEVICE)
+	vars.host		= luup.variable_get(GRAPHITE_SERVICE, "Host", GRAPHITE_DEVICE)
+	vars.port		= luup.variable_get(GRAPHITE_SERVICE, "Port", GRAPHITE_DEVICE)
+	vars.devices	= luup.variable_get(GRAPHITE_SERVICE, "Devices", GRAPHITE_DEVICE)
+	vars.interval	= luup.variable_get(GRAPHITE_SERVICE, "Interval", GRAPHITE_DEVICE)
+	vars.useroom	= luup.variable_get(GRAPHITE_SERVICE, "UseRoomName", GRAPHITE_DEVICE)
+	vars.useroom	= (vars.useroom == '1')
+
+	return vars
+end
+
+---------------------------------------------------------------
+-- replaceAccents function
+---------------------------------------------------------------
+local function replaceAccents(text)
+	local replacements = {
+		["à"] = "a",
+		["â"] = "a",
+		["é"] = "e",
+		["è"] = "e",
+		["ê"] = "e",
+		["ô"] = "o",
+		["û"] = "u",
+		["î"] = "i"
+	}
+
+	return string.gsub(text,"%a",replacements)
+end
+
+---------------------------------------------------------------
+-- buildMetric function
+---------------------------------------------------------------
+local function buildMetric(prefix, devId, dataType, path, useRoomName)
+
+	local device = luup.devices[devId]
+	local value
+	local room
+	local pathParts = {}
+
+	-- Value
+	if SENSORS_TYPES[dataType] ~= nil then
+		value = luup.variable_get(SENSORS_TYPES[dataType].serv_id,SENSORS_TYPES[dataType].var,devId)
+	else
+		return false
+	end
+
+	if value ~= nil and value ~= "" then
+
+		-- Timestamp
+		local timestamp = os.time()
+
+		-- Graphite target/path
+		room = luup.rooms[device.room_num]
+		if room then
+			room = replaceAccents(room)
+		end
+
+		if prefix ~= "" then
+			table.insert(pathParts, prefix)
+		end
+		if useRoomName then
+			table.insert(pathParts, room)
+		end
+		
+		table.insert(pathParts, path)
+
+		path = string.lower(table.concat(pathParts, "."))
+
+		path = string.gsub(path,"%s+","_")
+		path = string.gsub(path,"[^%w%_%-%.]+","")
+
+		return path .. ' ' .. value .. ' ' .. timestamp
+
+	else
+		return false
+	end
+end
+
+---------------------------------------------------------------
+-- BuildMetrics function
+---------------------------------------------------------------
+local function buildMetrics(prefix, devices, useRoomName)
+
+	local metrics = {}
+
+	-- 4=b:batterie,t:temperature,h:humidite;6=h:hum2;5=t:temp2
+	for devId, defs in string.gmatch(devices,"(%d+)=([^%;]+)") do
+		for data_type, path in string.gmatch(defs,"(%a+):([^%,]+)") do
+			local metric = buildMetric(prefix, tonumber(devId), data_type, path, useRoomName)
+			if metric then table.insert(metrics,metric) end
+		end
+	end
+
+	return table.concat(metrics,"\n") .. "\n"
+end
+
+---------------------------------------------------------------
+-- sendRaw function
+---------------------------------------------------------------
+local sendRaw = socket.protect(function (metrics, host, port)
+
+	debug(metrics)
+
+	local s = socket.try(socket.connect(host, tonumber(port)))
+
+	s:settimeout(5)
+
+	s:send(metrics)
+	s:shutdown()
+	s:close()
+
+	return true
+end)
+
+---------------------------------------------------------------
+-- checkVariables function
+---------------------------------------------------------------
+local function checkVariables(host, port)
+
+	debug('Variables checking launched')
+	local bool = false
+
+	if host == nil or #host == 0 then
+		log('Graphite Server IP address not set', 1)
+		task('You must set an IP address for the Graphite server',TASK_ERROR)
+
+	elseif port == nil or #port == 0 then
+		log('Graphite Server TCP port not set', 1)
+		task('You must set a TCP port for the Graphite server',TASK_ERROR)
+
+	elseif not host:find("^%d+%.%d+%.%d+%.%d+$") and not socket.dns.toip(host) then
+		log('Host unresolvable to IP address', 1)
+		task('The Graphite Server host cannot be resolved to IP address',TASK_ERROR)
+
+	else
+		task('', TASK_SUCCESS)
+		bool = true
+	end
+
+	debug('Variables checking => ' .. tostring(bool))
+	return bool
+end
+
+---------------------------------------------------------------
+-- sendAll function
+---------------------------------------------------------------
+function sendAll()
+
+	local vars = getVariables()
+
+	if not checkVariables(vars.host, vars.port) then
+		return false
+	else
+
+		task('Sending data to Graphite server', TASK_BUSY)
+
+		local metrics = buildMetrics(vars.prefix, vars.devices, vars.useroom) -- Should use pcall
+		local success, err = sendRaw(metrics, vars.host, vars.port)
+
+		if not success then
+			log(err, 1)
+			task('Failed to send to Graphite server. See logs for details', TASK_ERROR)
+			luup.variable_set(HADEVICE_SERVICE, "CommFailure", 1, GRAPHITE_DEVICE)
+			return false
+		else
+			task('Successfully sent data to Graphite server', TASK_SUCCESS)
+			luup.variable_set(HADEVICE_SERVICE, "CommFailure", 0, GRAPHITE_DEVICE)
+			luup.variable_set(HADEVICE_SERVICE, "LastUpdate", os.time(), GRAPHITE_DEVICE)
+		end
+	end
+
+	return true
+end
+
+---------------------------------------------------------------
+-- cronJob function
+---------------------------------------------------------------
+function cronJob()
+
+	log('Cron job called')
+
+	local vars = getVariables()
+
+	if not vars.interval or vars.interval == ""  or tonumber(vars.interval) == 0 then
+		return true
+	end
+
+	luup.call_action(GRAPHITE_SERVICE, "Send", {}, GRAPHITE_DEVICE)
+	luup.call_timer("cronJob",1,tonumber(vars.interval))
+
+	return true
+end
+
+---------------------------------------------------------------
+-- Startup
+---------------------------------------------------------------
+function startup(lul_device)
+
+	log("#" .. tostring(lul_device) .. " starting up with id " .. tostring(luup.devices[lul_device].id))
+
+	GRAPHITE_DEVICE = lul_device
+
+	-- Variables creation
+	local prefix	= luup.variable_get(GRAPHITE_SERVICE, "Prefix", GRAPHITE_DEVICE)
+	local host		= luup.variable_get(GRAPHITE_SERVICE, "Host", GRAPHITE_DEVICE)
+	local port		= luup.variable_get(GRAPHITE_SERVICE, "Port", GRAPHITE_DEVICE)
+	local devices	= luup.variable_get(GRAPHITE_SERVICE, "Devices", GRAPHITE_DEVICE)
+	local interval	= luup.variable_get(GRAPHITE_SERVICE, "Interval", GRAPHITE_DEVICE)
+	local useroom	= luup.variable_get(GRAPHITE_SERVICE, "UseRoomName", GRAPHITE_DEVICE)
+
+	if prefix == nil then
+		luup.variable_set(GRAPHITE_SERVICE, "Prefix", "", GRAPHITE_DEVICE)
+	end
+	if host == nil then
+		luup.variable_set(GRAPHITE_SERVICE, "Host", "", GRAPHITE_DEVICE)
+	end
+	if port == nil then
+		luup.variable_set(GRAPHITE_SERVICE, "Port", "", GRAPHITE_DEVICE)
+	end
+	if devices == nil then
+		luup.variable_set(GRAPHITE_SERVICE, "Devices", "", GRAPHITE_DEVICE)
+	end
+	if interval == nil then
+		luup.variable_set(GRAPHITE_SERVICE, "Interval", "", GRAPHITE_DEVICE)
+	end
+	if useroom == nil then
+		luup.variable_set(GRAPHITE_SERVICE, "UseRoomName", "0", GRAPHITE_DEVICE)
+	end
+
+	-- Variables checking
+	if not checkVariables(host, port) then return true end
+
+	-- Periodic send launch
+	luup.call_timer("cronJob", 1, 5)
+
+	return true
+end
+	</functions>
+	<startup>startup</startup>
+	<actionList>
+		<action>
+			<serviceId>urn:graphite-server-com:serviceId:GraphiteServer1</serviceId>
+			<name>Send</name>
+			<job>
+				if sendAll() then return 4 else return 2 end
+			</job>
+		</action>
+	</actionList>
+</implementation>

@@ -1,0 +1,116 @@
+{
+    "DeviceType": "urn:graphite-server-com:device:GraphiteServer:1",
+    "default_icon": "https://raw.githubusercontent.com/hbnix-com/vera-graphite/master/icons/graphite.png",
+    "imgIconBody": "",
+    "imgIconDimmable": "",
+    "imgIconTurnable": "",
+    "imgIconMin": "",
+    "imgIconMax": "",
+    "halloIconsDir": "pics/hallo",
+    "inScene": "0",
+    "DisplayStatus": {},
+    "doc_url": {
+        "doc_language": 1,
+        "doc_manual": 1,
+        "doc_version": 1,
+        "doc_platform": 0,
+        "doc_page": "other"
+    },
+    "Tabs": [
+        {
+            "Label": {
+                "lang_tag": "tabname_control",
+                "text": "Control"
+            },
+            "Position": "0",
+            "TabType": "flash",
+            "ControlGroup": [
+                {
+                    "id": "1",
+                    "scenegroup": "1",
+                    "isSingle": "1"
+                }
+            ],
+            "SceneGroup": [
+                {
+				   "id": "1",
+				   "top": "1",
+				   "left": "0",
+				   "x": "2",
+				   "y": "2"
+            	}
+			],
+            "Control": [
+                {
+                    "ControlType": "label",
+                    "top": "0",
+                    "left": "0",
+                    "Label": {
+                        "lang_tag": "host_label",
+                        "text": "Host"
+                    },
+                    "Display": {
+                        "Top": 50,
+                        "Left": 50,
+                        "Width": 70,
+                        "Height": 20
+                    }
+                },
+                {
+                    "ControlGroup": "1",
+                    "ControlType": "variable",
+                    "top": "0",
+                    "left": "0",
+                    "Display": {
+                        "Service": "urn:graphite-server-com:serviceId:GraphiteServer1",
+                        "Variable": "Host",
+                        "Top": 50,
+                        "Left": 130,
+                        "Width": 200,
+                        "Height": 20 
+                    }
+                },
+                {
+                	"ControlGroup": "1",
+                    "ControlType": "button",
+                    "top": "1",
+                    "left": "0",
+                    "Label": {
+                		"lang_tag": "sendnow_cmd",
+                		"text": "Send now"
+                    },
+                    "Display": {
+                        "Top": 80,
+                        "Left": 50,
+                        "Width": 100,
+                        "Height": 20
+                    },
+                    "Command": {
+                    	"Service": "urn:graphite-server-com:serviceId:GraphiteServer1",
+                    	"Action": "Send"
+                    }
+                }
+            ]
+        },
+        {
+            "Label": {
+                "lang_tag": "settings",
+                "text": "Settings"
+            },
+            "Position": "1",
+            "TabType": "javascript",
+            "ScriptName": "J_GraphiteServer1.js",
+            "Function": "graphite_server_settings"
+        },
+        {
+            "Label": {
+                "lang_tag": "advanced",
+                "text": "Advanced"
+            },
+            "Position": "2",
+            "TabType": "javascript",
+            "ScriptName": "shared.js",
+            "Function": "advanced_device"
+        }
+    ]
+}
