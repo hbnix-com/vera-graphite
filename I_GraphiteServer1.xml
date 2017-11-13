@@ -32,6 +32,11 @@ local SENSORS_TYPES = {
 		serv_id = "urn:micasaverde-com:serviceId:EnergyMetering1",
 		var = "KWH"
 	},
+	-- Power Status
+	ps = {
+		serv_id = "urn:micasaverde-com:serviceId:SwitchPower1",
+		var = "Status"
+	},
 	-- Pressure
 	pr = {
 		serv_id = "urn:upnp-org:serviceId:BarometerSensor1",

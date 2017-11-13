@@ -8,6 +8,7 @@ var GRAPHITE_VALUE_TYPES = {
 	'g' : 'Generic',
 	'l' : 'Light',
 	'pw' : 'Power',
+	'ps' : 'Power Status',
 	'pr' : 'Pressure',
 	'r' : 'Rain',
 	'rt' : 'Rain total',
