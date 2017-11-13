@@ -34,7 +34,7 @@ local SENSORS_TYPES = {
 	},
 	-- Power Status
 	ps = {
-		serv_id = "urn:upnp-org:serviceId:SwitchPower1:SwitchPower1",
+		serv_id = "urn:upnp-org:serviceId:SwitchPower1",
 		var = "Status"
 	},
 	-- Pressure
