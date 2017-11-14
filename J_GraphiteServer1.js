@@ -109,8 +109,10 @@ function get_metrics_settings(devId) {
 
 	var metrics = {};
 
-	var re1 = /(\d+)=([\w:\.,]+);?/g;
-	var re2 = /([thpb]):([\w\.]+),?/g;
+//	var re1 = /(\d+)=([\w:\.,]+);?/g;
+	var re1 = /(\d+)=([\w:\.\-\_,]+);?/g;
+//	var re2 = /([thpb]):([\w\.]+),?/g;
+	var re2 = /([0a-z]{1,2}):([\w\.\-\_]+),?/g;
 	var devices, params;
 
 	while ((devices = re1.exec(metricsUpnp)) !== null) {
