@@ -12,6 +12,8 @@ var GRAPHITE_VALUE_TYPES = {
 	'pr' : 'Pressure',
 	'r' : 'Rain',
 	'rt' : 'Rain total',
+	'sa' : 'Security Armed',
+	'st' : 'Security Tripped',
 	'sw' : 'Scale weight',
 	'si' : 'Scale impedance',
 	't' : 'Temperature',

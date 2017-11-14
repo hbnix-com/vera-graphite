@@ -62,6 +62,16 @@ local SENSORS_TYPES = {
 		serv_id = "urn:upnp-org:serviceId:RainSensor1",
 		var = "CurrentTRain"
 	},
+	-- Security Armed
+	sa = {
+		serv_id = "urn:micasaverde-com:serviceId:SecuritySensor1",
+		var = "Armed"
+	},
+	-- Security Tripped
+	st = {
+		serv_id = "urn:micasaverde-com:serviceId:SecuritySensor1",
+		var = "Tripped"
+	},
 	-- Scale Weight
 	sw = {
 		serv_id = "urn:micasaverde-com:serviceId:ScaleSensor1",
