@@ -27,11 +27,21 @@ local SENSORS_TYPES = {
 		serv_id = "urn:micasaverde-com:serviceId:HaDevice1",
 		var = "BatteryLevel"
 	},
-	-- Power
-	p = {
+	-- Power KWH
+	pk = {
 		serv_id = "urn:micasaverde-com:serviceId:EnergyMetering1",
 		var = "KWH"
 	},
+	-- Power Watts
+        pw = {
+                serv_id = "urn:micasaverde-com:serviceId:EnergyMetering1",
+                var = "Watts"
+        },
+	-- Power Amps
+        pa = {
+                serv_id = "urn:micasaverde-com:serviceId:EnergyMetering1",
+                var = "Amps"
+        },
 	-- Power Status
 	ps = {
 		serv_id = "urn:upnp-org:serviceId:SwitchPower1",
